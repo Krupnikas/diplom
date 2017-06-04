@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,15 +10,12 @@ from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
 
-hdu_list = fits.open('frame.fit')
-
-image_data = hdu_list[0].data
+image_data, header = fits.getdata("frame.fit", header=True)
 
 print(type(image_data))
 print(image_data.shape)
-print(fits.getheader('frame.fit'))
-
-hdu_list.close()
+for field in header:
+    print str(field) + "  :\t " + str(header[field])
 
 plt.imshow(image_data, cmap='gray')
 plt.colorbar()
