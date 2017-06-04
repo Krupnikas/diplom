@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,11 +14,11 @@ image_data, header = fits.getdata("frame.fit", header=True)
 
 print(type(image_data))
 print(image_data.shape)
-print "-----------------------------------------------------------------------------"
+print("-----------------------------------------------------------------------------")
 for field in header:
-    print str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field])
+    print(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
 
-print "-----------------------------------------------------------------------------"
+print("-----------------------------------------------------------------------------")
 
 plt.imshow(image_data, cmap='gray')
 plt.colorbar()
