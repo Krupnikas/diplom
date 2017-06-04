@@ -14,8 +14,11 @@ image_data, header = fits.getdata("frame.fit", header=True)
 
 print(type(image_data))
 print(image_data.shape)
+print "-----------------------------------------------------------------------------"
 for field in header:
-    print str(field) + "  :\t " + str(header[field])
+    print str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field])
+
+print "-----------------------------------------------------------------------------"
 
 plt.imshow(image_data, cmap='gray')
 plt.colorbar()
