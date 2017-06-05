@@ -10,6 +10,74 @@ from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
 
+from qgmap import *
+
+def goCoords() :
+        def resetError() :
+                coordsEdit.setStyleSheet('')
+        try : latitude, longitude = coordsEdit.text().split(",")
+        except ValueError :
+                coordsEdit.setStyleSheet("color: red;")
+                QtCore.QTimer.singleShot(500, resetError)
+        else :
+                gmap.centerAt(latitude, longitude)
+                gmap.moveMarker("MyDragableMark", latitude, longitude)
+
+def goAddress() :
+        def resetError() :
+                addressEdit.setStyleSheet('')
+        coords = gmap.centerAtAddress(addressEdit.text())
+        if coords is None :
+                addressEdit.setStyleSheet("color: red;")
+                QtCore.QTimer.singleShot(500, resetError)
+                return
+        gmap.moveMarker("MyDragableMark", *coords)
+        coordsEdit.setText("{}, {}".format(*coords))
+
+def onMarkerMoved(key, latitude, longitude) :
+        print("Moved!!", key, latitude, longitude)
+        coordsEdit.setText("{}, {}".format(latitude, longitude))
+def onMarkerRClick(key) :
+        print("RClick on ", key)
+        gmap.setMarkerOptions(key, draggable=False)
+def onMarkerLClick(key) :
+        print("LClick on ", key)
+def onMarkerDClick(key) :
+        print("DClick on ", key)
+        gmap.setMarkerOptions(key, draggable=True)
+
+def onMapMoved(latitude, longitude) :
+        print("Moved to ", latitude, longitude)
+def onMapRClick(latitude, longitude) :
+        print("RClick on ", latitude, longitude)
+def onMapLClick(latitude, longitude) :
+        print("LClick on ", latitude, longitude)
+def onMapDClick(latitude, longitude) :
+        print("DClick on ", latitude, longitude)
+
+app = QtGui.QApplication([])
+w = QtGui.QDialog()
+h = QtGui.QVBoxLayout(w)
+l = QtGui.QFormLayout()
+h.addLayout(l)
+
+gmap = QGoogleMap(w)
+gmap.mapMoved.connect(onMapMoved)
+gmap.markerMoved.connect(onMarkerMoved)
+gmap.mapClicked.connect(onMapLClick)
+gmap.mapDoubleClicked.connect(onMapDClick)
+gmap.mapRightClicked.connect(onMapRClick)
+gmap.markerClicked.connect(onMarkerLClick)
+gmap.markerDoubleClicked.connect(onMarkerDClick)
+gmap.markerRightClicked.connect(onMarkerRClick)
+h.addWidget(gmap)
+gmap.setSizePolicy(
+        QtGui.QSizePolicy.MinimumExpanding,
+        QtGui.QSizePolicy.MinimumExpanding)
+w.show()
+
+gmap.waitUntilReady()
+
 image_data, header = fits.getdata("frame.fit", header=True)
 
 print(type(image_data))
@@ -19,6 +87,14 @@ for field in header:
     print(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
 
 print("-----------------------------------------------------------------------------")
+
+coords = gmap.centerAt(header["SITELAT"], header["SITELON"])
+gmap.setZoom(8)
+
+gmap.addMarker("MyDragableMark", header["SITELAT"], header["SITELON"])
+
+app.exec_()
+exit()
 
 plt.imshow(image_data, cmap='gray')
 plt.colorbar()
