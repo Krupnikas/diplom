@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +8,7 @@ from photutils import DAOStarFinder
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
+from PyQt5 import QtWidgets
 
 from qgmap import *
 
@@ -55,10 +55,10 @@ def onMapLClick(latitude, longitude) :
 def onMapDClick(latitude, longitude) :
         print("DClick on ", latitude, longitude)
 
-app = QtGui.QApplication([])
-w = QtGui.QDialog()
-h = QtGui.QVBoxLayout(w)
-l = QtGui.QFormLayout()
+app = QtWidgets.QApplication([])
+w = QtWidgets.QDialog()
+h = QtWidgets.QVBoxLayout(w)
+l = QtWidgets.QFormLayout()
 h.addLayout(l)
 
 gmap = QGoogleMap(w)
@@ -72,8 +72,8 @@ gmap.markerDoubleClicked.connect(onMarkerDClick)
 gmap.markerRightClicked.connect(onMarkerRClick)
 h.addWidget(gmap)
 gmap.setSizePolicy(
-        QtGui.QSizePolicy.MinimumExpanding,
-        QtGui.QSizePolicy.MinimumExpanding)
+        QtWidgets.QSizePolicy.MinimumExpanding,
+        QtWidgets.QSizePolicy.MinimumExpanding)
 w.show()
 
 gmap.waitUntilReady()
