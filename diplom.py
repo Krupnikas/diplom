@@ -1,4 +1,6 @@
 from astropy.io import fits
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm
@@ -8,9 +10,37 @@ from photutils import DAOStarFinder
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
-from PyQt5 import QtWidgets
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton, QGridLayout
+from PyQt5.QtGui import QIcon
 
 from qgmap import *
+
+import matplotlib
+matplotlib.use("Qt5Agg")
+
+import random
+
+class PlotCanvas(FigureCanvas):
+
+    def __init__(self, parent=None, width=7, height=7, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+
+        FigureCanvas.__init__(self, fig)
+        self.setParent(parent)
+
+        FigureCanvas.setSizePolicy(self,
+                QSizePolicy.Expanding,
+                QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+        self.plot()
+
+    def plot(self):
+            ax = self.figure.add_subplot(111)
+            ax.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
+            ax.set_title('Image')
+            self.draw()
 
 def goCoords() :
         def resetError() :
@@ -58,8 +88,8 @@ def onMapDClick(latitude, longitude) :
 app = QtWidgets.QApplication([])
 w = QtWidgets.QDialog()
 h = QtWidgets.QVBoxLayout(w)
-l = QtWidgets.QFormLayout()
-h.addLayout(l)
+g = QtWidgets.QGridLayout()
+h.addLayout(g)
 
 gmap = QGoogleMap(w)
 gmap.mapMoved.connect(onMapMoved)
@@ -70,10 +100,10 @@ gmap.mapRightClicked.connect(onMapRClick)
 gmap.markerClicked.connect(onMarkerLClick)
 gmap.markerDoubleClicked.connect(onMarkerDClick)
 gmap.markerRightClicked.connect(onMarkerRClick)
-h.addWidget(gmap)
+g.addWidget(gmap, 0, 1)
 gmap.setSizePolicy(
-        QtWidgets.QSizePolicy.MinimumExpanding,
-        QtWidgets.QSizePolicy.MinimumExpanding)
+        QtWidgets.QSizePolicy.Expanding,
+        QtWidgets.QSizePolicy.Expanding)
 w.show()
 
 gmap.waitUntilReady()
@@ -92,6 +122,9 @@ coords = gmap.centerAt(header["SITELAT"], header["SITELON"])
 gmap.setZoom(8)
 
 gmap.addMarker("MyDragableMark", header["SITELAT"], header["SITELON"])
+
+canvas = PlotCanvas()
+g.addWidget(canvas, 0, 0)
 
 app.exec_()
 exit()
