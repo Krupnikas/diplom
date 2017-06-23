@@ -11,8 +11,10 @@ from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QHBoxLayout, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton, QGridLayout, QFileDialog, QTextEdit
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore  import QTimer
+from PyQt5.QtCore import pyqtSlot
 
 from qgmap import *
 
@@ -20,6 +22,7 @@ import matplotlib
 matplotlib.use("Qt5Agg")
 
 import random
+import time
 
 class PlotCanvas(FigureCanvas):
 
@@ -34,12 +37,26 @@ class PlotCanvas(FigureCanvas):
                 QSizePolicy.Expanding,
                 QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-        self.plot()
 
-    def plot(self):
+    def plotFit(self):
+            ax = self.figure.add_subplot(111)
+            ax.imshow(image_data, cmap='gray')
+            ax.set_title('Image')
+            self.draw()
+
+    def plotFitLog(self):
             ax = self.figure.add_subplot(111)
             ax.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
             ax.set_title('Image')
+            self.draw()
+
+    def plotHist(self, num):
+            ax = self.figure.add_subplot(111)
+            NBINS = 1000
+            ax.hist(image_data.ravel()[num], NBINS)
+            ax.set_title('Distribution')
+            ax.set_xlabel('Brightness')
+            ax.set_ylabel('Number of pixels')
             self.draw()
 
 def goCoords() :
@@ -85,11 +102,92 @@ def onMapLClick(latitude, longitude) :
 def onMapDClick(latitude, longitude) :
         print("DClick on ", latitude, longitude)
 
+@pyqtSlot()
+def analyse():
+    completed = 0
+    textOutput.append("Analysing...")
+    while (completed < 5):
+        completed += 0.1
+        progress.setValue(completed)
+        time.sleep(0.02)
+
+    canvas.plotFitLog()
+    while (completed < 10):
+        completed += 0.1
+        progress.setValue(completed)
+        time.sleep(0.02)
+
+    for index, pixel in enumerate(image_data) :
+        hist.plotHist(image_data[index])
+        completed += 0.1
+        progress.setValue(completed)
+        time.sleep(0.02)
+
+    textOutput.append(str('Min:', np.min(image_data)))
+    textOutput.append(str('Max:', np.max(image_data)))
+    textOutput.append(str('Mean:', np.mean(image_data)))
+    textOutput.append(str('Stdev:', np.std(image_data)))
+
+    mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
+    textOutput.append(str(mean, median, std))
+
+    daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
+    sources = daofind(image_data - median)
+    textOutput.append(str(sources))
+
+    positions = (sources['xcentroid'], sources['ycentroid'])
+    apertures = CircularAperture(positions, r=10.)
+    #norm = ImageNormalize(stretch=SqrtStretch())
+    plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
+    apertures.plot(color='white', lw=1, alpha=1)
+    plt.show()
+
+#-------------------------------------------------------
+
 app = QtWidgets.QApplication([])
 w = QtWidgets.QDialog()
-h = QtWidgets.QVBoxLayout(w)
+w.setWindowTitle("Atmosphere analyser")
+w.resize(1280, 720)
+vertLayout = QtWidgets.QVBoxLayout(w)
+
 g = QtWidgets.QGridLayout()
-h.addLayout(g)
+vertLayout.addLayout(g)
+
+h = QtWidgets.QHBoxLayout()
+vertLayout.addLayout(h)
+
+fname = QFileDialog.getOpenFileName(None, 'Open file', '',"Fit files (*.fit *.fits)")
+
+w.show()
+
+button = QPushButton('Start analysis')
+button.setToolTip('Press the button to start analysis')
+button.clicked.connect(analyse)
+h.addWidget(button)
+
+progress = QtWidgets.QProgressBar()
+h.addWidget(progress)
+
+textOutput = QtWidgets.QTextEdit()
+textOutput.setReadOnly(True)
+g.addWidget(textOutput, 1, 1)
+
+image_data, header = fits.getdata(fname[0], header=True)
+
+textOutput.append(str(type(image_data)))
+textOutput.append(str(image_data.shape))
+textOutput.append("-----------------------------------------------------------------------------")
+for field in header:
+    textOutput.append(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
+
+textOutput.append("-----------------------------------------------------------------------------")
+
+canvas = PlotCanvas()
+canvas.plotFit()
+g.addWidget(canvas, 0, 0)
+
+hist = PlotCanvas()
+g.addWidget(hist, 1, 0)
 
 gmap = QGoogleMap(w)
 gmap.mapMoved.connect(onMapMoved)
@@ -104,58 +202,12 @@ g.addWidget(gmap, 0, 1)
 gmap.setSizePolicy(
         QtWidgets.QSizePolicy.Expanding,
         QtWidgets.QSizePolicy.Expanding)
-w.show()
-
 gmap.waitUntilReady()
-
-image_data, header = fits.getdata("frame.fit", header=True)
-
-print(type(image_data))
-print(image_data.shape)
-print("-----------------------------------------------------------------------------")
-for field in header:
-    print(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
-
-print("-----------------------------------------------------------------------------")
-
+gmap.addMarker("Observatory", header["SITELAT"], header["SITELON"])
 coords = gmap.centerAt(header["SITELAT"], header["SITELON"])
 gmap.setZoom(8)
-
-gmap.addMarker("MyDragableMark", header["SITELAT"], header["SITELON"])
-
-canvas = PlotCanvas()
-g.addWidget(canvas, 0, 0)
 
 app.exec_()
 exit()
 
-plt.imshow(image_data, cmap='gray')
-plt.colorbar()
-plt.show()
 
-print('Min:', np.min(image_data))
-print('Max:', np.max(image_data))
-print('Mean:', np.mean(image_data))
-print('Stdev:', np.std(image_data))
-
-NBINS = 1000
-histogram = plt.hist(image_data.flat, NBINS)
-plt.show()
-
-plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
-plt.colorbar()
-plt.show();
-
-mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)    
-print((mean, median, std))  
-
-daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)    
-sources = daofind(image_data - median)    
-print(sources) 
-
-positions = (sources['xcentroid'], sources['ycentroid'])
-apertures = CircularAperture(positions, r=10.)
-#norm = ImageNormalize(stretch=SqrtStretch())
-plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
-apertures.plot(color='white', lw=1, alpha=1)
-plt.show()
