@@ -25,7 +25,7 @@ import random
 import time
 
 class PlotCanvas(FigureCanvas):
-
+    ax = 0
     def __init__(self, parent=None, width=7, height=7, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
@@ -39,68 +39,71 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.updateGeometry(self)
 
     def plotFit(self):
-            ax = self.figure.add_subplot(111)
-            ax.imshow(image_data, cmap='gray')
-            ax.set_title('Image')
-            self.draw()
+        ax = self.figure.add_subplot(111)
+        ax.imshow(image_data, cmap='gray')
+        ax.set_title('Image')
+        self.draw()
 
     def plotFitLog(self):
-            ax = self.figure.add_subplot(111)
-            ax.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
-            ax.set_title('Image')
-            self.draw()
+        ax = self.figure.add_subplot(111)
+        ax.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
+        ax.set_title('Image')
+        self.draw()
+
+    def addSubplot(self) :
+        self.ax = self.figure.add_subplot(111)
 
     def plotHist(self, num):
-            ax = self.figure.add_subplot(111)
-            NBINS = 1000
-            ax.hist(image_data.ravel()[num], NBINS)
-            ax.set_title('Distribution')
-            ax.set_xlabel('Brightness')
-            ax.set_ylabel('Number of pixels')
-            self.draw()
+        NBINS = 1000
+        self.ax.cla()
+        self.ax.hist(image_data.ravel()[:num], NBINS)
+        self.ax.set_title('Distribution')
+        self.ax.set_xlabel('Brightness')
+        self.ax.set_ylabel('Number of pixels')
+        self.draw()
 
 def goCoords() :
-        def resetError() :
-                coordsEdit.setStyleSheet('')
-        try : latitude, longitude = coordsEdit.text().split(",")
-        except ValueError :
-                coordsEdit.setStyleSheet("color: red;")
-                QtCore.QTimer.singleShot(500, resetError)
-        else :
-                gmap.centerAt(latitude, longitude)
-                gmap.moveMarker("MyDragableMark", latitude, longitude)
+    def resetError() :
+            coordsEdit.setStyleSheet('')
+    try : latitude, longitude = coordsEdit.text().split(",")
+    except ValueError :
+            coordsEdit.setStyleSheet("color: red;")
+            QtCore.QTimer.singleShot(500, resetError)
+    else :
+            gmap.centerAt(latitude, longitude)
+            gmap.moveMarker("MyDragableMark", latitude, longitude)
 
 def goAddress() :
-        def resetError() :
-                addressEdit.setStyleSheet('')
-        coords = gmap.centerAtAddress(addressEdit.text())
-        if coords is None :
-                addressEdit.setStyleSheet("color: red;")
-                QtCore.QTimer.singleShot(500, resetError)
-                return
-        gmap.moveMarker("MyDragableMark", *coords)
-        coordsEdit.setText("{}, {}".format(*coords))
+    def resetError() :
+            addressEdit.setStyleSheet('')
+    coords = gmap.centerAtAddress(addressEdit.text())
+    if coords is None :
+            addressEdit.setStyleSheet("color: red;")
+            QtCore.QTimer.singleShot(500, resetError)
+            return
+    gmap.moveMarker("MyDragableMark", *coords)
+    coordsEdit.setText("{}, {}".format(*coords))
 
 def onMarkerMoved(key, latitude, longitude) :
-        print("Moved!!", key, latitude, longitude)
-        coordsEdit.setText("{}, {}".format(latitude, longitude))
+    print("Moved!!", key, latitude, longitude)
+    coordsEdit.setText("{}, {}".format(latitude, longitude))
 def onMarkerRClick(key) :
-        print("RClick on ", key)
-        gmap.setMarkerOptions(key, draggable=False)
+    print("RClick on ", key)
+    gmap.setMarkerOptions(key, draggable=False)
 def onMarkerLClick(key) :
-        print("LClick on ", key)
+    print("LClick on ", key)
 def onMarkerDClick(key) :
-        print("DClick on ", key)
-        gmap.setMarkerOptions(key, draggable=True)
+    print("DClick on ", key)
+    gmap.setMarkerOptions(key, draggable=True)
 
 def onMapMoved(latitude, longitude) :
-        print("Moved to ", latitude, longitude)
+    print("Moved to ", latitude, longitude)
 def onMapRClick(latitude, longitude) :
-        print("RClick on ", latitude, longitude)
+    print("RClick on ", latitude, longitude)
 def onMapLClick(latitude, longitude) :
-        print("LClick on ", latitude, longitude)
+    print("LClick on ", latitude, longitude)
 def onMapDClick(latitude, longitude) :
-        print("DClick on ", latitude, longitude)
+    print("DClick on ", latitude, longitude)
 
 @pyqtSlot()
 def analyse():
@@ -117,17 +120,18 @@ def analyse():
         progress.setValue(completed)
         time.sleep(0.02)
 
-    for index, pixel in enumerate(image_data) :
-        hist.plotHist(image_data[index])
-        completed += 0.1
-        progress.setValue(completed)
-        time.sleep(0.02)
+    for index, pixel in enumerate(image_data.ravel()) :
+        if (index%10000 == 0) :
+            textOutput.append("Plotting Hist " + str(index))
+            hist.plotHist(index)
+            completed += 1
+            progress.setValue(completed)
 
-    textOutput.append(str('Min:', np.min(image_data)))
-    textOutput.append(str('Max:', np.max(image_data)))
-    textOutput.append(str('Mean:', np.mean(image_data)))
-    textOutput.append(str('Stdev:', np.std(image_data)))
-
+    textOutput.append(str('Min:') + str(np.min(image_data)))
+    textOutput.append(str('Max:') + str(np.max(image_data)))
+    textOutput.append(str('Mean:') + str(np.mean(image_data)))
+    textOutput.append(str('Stdev:') + str(np.std(image_data)))
+'''
     mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
     textOutput.append(str(mean, median, std))
 
@@ -141,7 +145,7 @@ def analyse():
     plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
     apertures.plot(color='white', lw=1, alpha=1)
     plt.show()
-
+'''
 #-------------------------------------------------------
 
 app = QtWidgets.QApplication([])
@@ -187,6 +191,7 @@ canvas.plotFit()
 g.addWidget(canvas, 0, 0)
 
 hist = PlotCanvas()
+hist.addSubplot()
 g.addWidget(hist, 1, 0)
 
 gmap = QGoogleMap(w)
