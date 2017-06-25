@@ -165,7 +165,7 @@ def analyse():
     daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
     sources = daofind(image_data - median)
 
-    completed = 50
+    completed = 43
     progress.setValue(completed)
 
     canvas.addPicture()
@@ -178,8 +178,11 @@ def analyse():
     sr = 0.05 * u.degree
     num = 0
 
-    completed = 55
+    completed = 50
     progress.setValue(completed)
+    res = []
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
 
     for cord in sky_coords:
         if (completed < 99):
@@ -189,15 +192,22 @@ def analyse():
             completed += 1
             progress.setValue(completed)
         canvas.plotPoint(pix_coords[num][0], pix_coords[num][1])
-        num = num + 1
         textOutput.append("-----------------------------------------------------------------------------")
-        textOutput.append('Found star #' + str(num))
+        textOutput.append('Found star #' + str(num + 1))
         textOutput.append('Constelation name: ' + cord.get_constellation())
         textOutput.append(str(cord))
         result = conesearch.conesearch(cord, sr, catalog_db='The HST Guide Star Catalog, Version 1.2 (Lasker+ 1996) 1')
+        res.append(result)
         textOutput.append('Number of stars from Catalogue: ' + str(len(result.array.data)))
         textOutput.append(str(result.array.dtype.names))
         textOutput.append(str(result.array.data[result.array.data['Pmag'].argmax()]))
+        textOutput.append("My mag: " + str(sources[num]['mag']) + " Catalog mag: " + str(result.array.data['Pmag'].max()))
+        num = num + 1
+
+    num = 0
+    for cord in sky_coords:
+        print("My mag: " + str(sources[num]['mag']) + " Catalog mag: " + str(res[num].array.data['Pmag'].max()))
+        num = num + 1
 
 #-------------------------------------------------------
 

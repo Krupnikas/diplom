@@ -1,0 +1,22 @@
+My mag: -0.737232114037 Catalog mag: 13.6
+My mag: -2.68858358605 Catalog mag: 16.03
+My mag: -0.445850772731 Catalog mag: 14.42
+My mag: -0.59854260092 Catalog mag: 14.5
+My mag: -0.0204423877412 Catalog mag: 13.42
+My mag: -1.6996621579 Catalog mag: 15.17
+My mag: -3.25602886318 Catalog mag: 15.17
+My mag: -0.403718998826 Catalog mag: 14.06
+My mag: -1.67172609708 Catalog mag: 14.58
+My mag: -2.07085088753 Catalog mag: 15.28
+My mag: -0.442912661054 Catalog mag: 13.71
+My mag: -1.21532989048 Catalog mag: 13.68
+My mag: -2.68222598663 Catalog mag: 13.75
+My mag: -0.508217922242 Catalog mag: 13.76
+My mag: -0.48938444572 Catalog mag: 14.0
+My mag: -1.39446337123 Catalog mag: 13.03
+My mag: -0.0981263502885 Catalog mag: 13.88
+My mag: -1.2361227393 Catalog mag: 13.59
+My mag: -1.31219604632 Catalog mag: 14.09
+My mag: -0.109618075616 Catalog mag: 13.59
+My mag: -0.460213233774 Catalog mag: 12.44
+
