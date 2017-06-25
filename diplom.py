@@ -1,3 +1,4 @@
+#!/root/anaconda3/bin/python3
 from astropy.io import fits
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -7,10 +8,15 @@ from matplotlib.colors import LogNorm
 from astropy.stats import sigma_clipped_stats
 from photutils import datasets
 from photutils import DAOStarFinder
+from astropy.wcs import WCS
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from photutils import CircularAperture
+from astropy.vo.client import conesearch
+from astropy import coordinates
+from astropy import units as u
 
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QHBoxLayout, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton, QGridLayout, QFileDialog, QTextEdit
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore  import QTimer
@@ -24,8 +30,13 @@ matplotlib.use("Qt5Agg")
 import random
 import time
 
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+
 class PlotCanvas(FigureCanvas):
-    ax = 0
+    histogram = 0
+    picture = 0
     def __init__(self, parent=None, width=7, height=7, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
@@ -50,16 +61,23 @@ class PlotCanvas(FigureCanvas):
         ax.set_title('Image')
         self.draw()
 
-    def addSubplot(self) :
-        self.ax = self.figure.add_subplot(111)
+    def plotPoint(self, x, y):
+        self.picture.plot(x, y, ls='none', color='lightgreen', marker='+', ms=10, lw=1.5)
+        self.draw()
+
+    def addHistogram(self) :
+        self.histogram = self.figure.add_subplot(111)
+
+    def addPicture(self) :
+        self.picture = self.figure.add_subplot(111)
 
     def plotHist(self, num):
         NBINS = 1000
-        self.ax.cla()
-        self.ax.hist(image_data.ravel()[:num], NBINS)
-        self.ax.set_title('Distribution')
-        self.ax.set_xlabel('Brightness')
-        self.ax.set_ylabel('Number of pixels')
+        self.histogram.cla()
+        self.histogram.hist(image_data.ravel()[:num], NBINS)
+        self.histogram.set_title('Distribution')
+        self.histogram.set_xlabel('Brightness')
+        self.histogram.set_ylabel('Number of pixels')
         self.draw()
 
 def goCoords() :
@@ -109,43 +127,78 @@ def onMapDClick(latitude, longitude) :
 def analyse():
     completed = 0
     textOutput.append("Analysing...")
-    while (completed < 5):
-        completed += 0.1
+    textOutput.append("-----------------------------------------------------------------------------")
+
+    for field in header:
+        textOutput.append(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
+        completed += 0.5
         progress.setValue(completed)
         time.sleep(0.02)
 
+    textOutput.append("-----------------------------------------------------------------------------")
     canvas.plotFitLog()
-    while (completed < 10):
-        completed += 0.1
-        progress.setValue(completed)
-        time.sleep(0.02)
+    completed += 5
+    progress.setValue(completed)
+    time.sleep(1)
 
-    for index, pixel in enumerate(image_data.ravel()) :
-        if (index%10000 == 0) :
-            textOutput.append("Plotting Hist " + str(index))
-            hist.plotHist(index)
-            completed += 1
-            progress.setValue(completed)
+    hist.plotHist(10000)
+    completed += 5
+    progress.setValue(completed)
+
+    hist.plotHist(159999)
+    completed += 5
+    progress.setValue(completed)
 
     textOutput.append(str('Min:') + str(np.min(image_data)))
     textOutput.append(str('Max:') + str(np.max(image_data)))
     textOutput.append(str('Mean:') + str(np.mean(image_data)))
     textOutput.append(str('Stdev:') + str(np.std(image_data)))
-'''
-    mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
-    textOutput.append(str(mean, median, std))
 
+    mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
+
+    completed = 45
+    progress.setValue(completed)
+
+    #canvas.plotApertures()
+
+    mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
     daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
     sources = daofind(image_data - median)
-    textOutput.append(str(sources))
 
-    positions = (sources['xcentroid'], sources['ycentroid'])
-    apertures = CircularAperture(positions, r=10.)
-    #norm = ImageNormalize(stretch=SqrtStretch())
-    plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
-    apertures.plot(color='white', lw=1, alpha=1)
-    plt.show()
-'''
+    completed = 50
+    progress.setValue(completed)
+
+    canvas.addPicture()
+    pix_coords = []
+    for point in sources:
+        pix_coords.append((point['xcentroid'], point['ycentroid']))
+    w = WCS(hdu.header)
+    world_coords = w.wcs_pix2world(pix_coords, 0)
+    sky_coords = coordinates.SkyCoord(world_coords*u.deg, frame='fk4')
+    sr = 0.05 * u.degree
+    num = 0
+
+    completed = 55
+    progress.setValue(completed)
+
+    for cord in sky_coords:
+        if (completed < 99):
+            completed += 1
+            progress.setValue(completed)
+            time.sleep(0.3)
+            completed += 1
+            progress.setValue(completed)
+        canvas.plotPoint(pix_coords[num][0], pix_coords[num][1])
+        num = num + 1
+        textOutput.append("-----------------------------------------------------------------------------")
+        textOutput.append('Found star #' + str(num))
+        textOutput.append('Constelation name: ' + cord.get_constellation())
+        textOutput.append(str(cord))
+        result = conesearch.conesearch(cord, sr, catalog_db='The HST Guide Star Catalog, Version 1.2 (Lasker+ 1996) 1')
+        textOutput.append('Number of stars from Catalogue: ' + str(len(result.array.data)))
+        textOutput.append(str(result.array.dtype.names))
+        textOutput.append(str(result.array.data[result.array.data['Pmag'].argmax()]))
+
 #-------------------------------------------------------
 
 app = QtWidgets.QApplication([])
@@ -176,22 +229,18 @@ textOutput = QtWidgets.QTextEdit()
 textOutput.setReadOnly(True)
 g.addWidget(textOutput, 1, 1)
 
+hdulist = fits.open(fname[0])
+hdu = hdulist[0]
 image_data, header = fits.getdata(fname[0], header=True)
 
-textOutput.append(str(type(image_data)))
-textOutput.append(str(image_data.shape))
-textOutput.append("-----------------------------------------------------------------------------")
-for field in header:
-    textOutput.append(str(field) + ":  \t " + str(header[field]) + "\t //"  + str(header.comments[field]))
-
-textOutput.append("-----------------------------------------------------------------------------")
+textOutput.append("Press the button to analyse the atmosphere...")
 
 canvas = PlotCanvas()
 canvas.plotFit()
 g.addWidget(canvas, 0, 0)
 
 hist = PlotCanvas()
-hist.addSubplot()
+hist.addHistogram()
 g.addWidget(hist, 1, 0)
 
 gmap = QGoogleMap(w)
