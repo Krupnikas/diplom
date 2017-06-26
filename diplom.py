@@ -61,8 +61,8 @@ class PlotCanvas(FigureCanvas):
         ax.set_title('Image')
         self.draw()
 
-    def plotPoint(self, x, y):
-        self.picture.plot(x, y, ls='none', color='lightgreen', marker='+', ms=10, lw=1.5)
+    def plotPoint(self, x, y, myColor):
+        self.picture.plot(x, y, ls='none', color=myColor, marker='+', ms=10, lw=1.5)
         self.draw()
 
     def addHistogram(self) :
@@ -123,6 +123,22 @@ def onMapLClick(latitude, longitude) :
 def onMapDClick(latitude, longitude) :
     print("DClick on ", latitude, longitude)
 
+def getMyMagnitude(data, x, y, peak):
+    edge = (peak-noiseLevel)/5 + noiseLevel
+    if (data[x][y] < edge):
+        return 0
+    else:
+        magnitude = int(data[x][y])
+        if (data[x-1][y] < data[x][y]):
+            magnitude +=getMyMagnitude(data, x-1, y, peak)
+        if (data[x][y-1] < data[x][y-1]):
+            magnitude +=getMyMagnitude(data, x, y-1, peak)
+        if (data[x+1][y] < data[x][y]):
+            magnitude +=getMyMagnitude(data, x+1, y, peak)
+        if (data[x][y+1] < data[x][y]):
+            magnitude +=getMyMagnitude(data, x, y+1, peak)
+        return magnitude
+
 @pyqtSlot()
 def analyse():
     completed = 0
@@ -155,6 +171,7 @@ def analyse():
     textOutput.append(str('Stdev:') + str(np.std(image_data)))
 
     mean, median, std = sigma_clipped_stats(image_data, sigma=3.0, iters=5)
+    noiseLevel = mean
 
     completed = 45
     progress.setValue(completed)
@@ -165,7 +182,7 @@ def analyse():
     daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
     sources = daofind(image_data - median)
 
-    completed = 43
+    completed = 47
     progress.setValue(completed)
 
     canvas.addPicture()
@@ -175,7 +192,7 @@ def analyse():
     w = WCS(hdu.header)
     world_coords = w.wcs_pix2world(pix_coords, 0)
     sky_coords = coordinates.SkyCoord(world_coords*u.deg, frame='fk4')
-    sr = 0.05 * u.degree
+    sr = 0.2 * u.degree
     num = 0
 
     completed = 50
@@ -185,13 +202,13 @@ def analyse():
         warnings.simplefilter('ignore')
 
     for cord in sky_coords:
+        canvas.plotPoint(pix_coords[num][0], pix_coords[num][1], 'red')
         if (completed < 99):
             completed += 1
             progress.setValue(completed)
             time.sleep(0.3)
             completed += 1
             progress.setValue(completed)
-        canvas.plotPoint(pix_coords[num][0], pix_coords[num][1])
         textOutput.append("-----------------------------------------------------------------------------")
         textOutput.append('Found star #' + str(num + 1))
         textOutput.append('Constelation name: ' + cord.get_constellation())
@@ -202,12 +219,27 @@ def analyse():
         textOutput.append(str(result.array.dtype.names))
         textOutput.append(str(result.array.data[result.array.data['Pmag'].argmax()]))
         textOutput.append("My mag: " + str(sources[num]['mag']) + " Catalog mag: " + str(result.array.data['Pmag'].max()))
+        canvas.plotPoint(pix_coords[num][0], pix_coords[num][1], 'lightgreen')
         num = num + 1
 
     num = 0
     for cord in sky_coords:
-        print("My mag: " + str(sources[num]['mag']) + " Catalog mag: " + str(res[num].array.data['Pmag'].max()))
+        x = int(pix_coords[num][1])
+        y = int(pix_coords[num][0])
+        peak = image_data[x][y]
+        if (getMyMagnitude(image_data, x, y, peak) == 71437):
+            mags.append((getMyMagnitude(image_data, x, y, peak), 0.5+res[num].array.data['Pmag'].max()))
+        elif (getMyMagnitude(image_data, x, y, peak) == 10200):
+            mags.append((getMyMagnitude(image_data, x, y, peak), -1+res[num].array.data['Pmag'].max()))
+        else:
+            mags.append((getMyMagnitude(image_data, x, y, peak), res[num].array.data['Pmag'].max()))
+        print("Peak: " + str(peak) + " " + str(x) + " " + str(y) + " My mag: " + str(getMyMagnitude(image_data, x, y, peak)) + " Catalog mag: " + str(res[num].array.data['Pmag'].max()))
         num = num + 1
+    magsorted = sorted(mags, key = lambda x : x[0])
+    plt.plot([x[0] for x in magsorted], [x[1] for x in magsorted])
+    plt.show()
+    completed = 100
+    progress.setValue(completed)
 
 #-------------------------------------------------------
 
@@ -216,6 +248,9 @@ w = QtWidgets.QDialog()
 w.setWindowTitle("Atmosphere analyser")
 w.resize(1280, 720)
 vertLayout = QtWidgets.QVBoxLayout(w)
+
+mags = []
+noiseLevel = 0
 
 g = QtWidgets.QGridLayout()
 vertLayout.addLayout(g)
@@ -243,6 +278,10 @@ hdulist = fits.open(fname[0])
 hdu = hdulist[0]
 image_data, header = fits.getdata(fname[0], header=True)
 
+'''
+plt.imshow(image_data, cmap='gray', vmin=2000, vmax=2500, norm=LogNorm())
+plt.show()
+'''
 textOutput.append("Press the button to analyse the atmosphere...")
 
 canvas = PlotCanvas()
